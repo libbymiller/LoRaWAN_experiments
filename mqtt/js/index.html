@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+    <html lang="en-us">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="robots" content="noindex, nofollow" />
+      <link rel="stylesheet" href="static/css/main.css">
+
+      <link rel="stylesheet" href="static/css/leaflet.css" />
+      <link rel="stylesheet" href="static/css/leaflet.draw.css" />
+
+      <script type="text/javascript" src="static/js/leaflet.js"></script>
+      <script type="text/javascript" src="static/js/leaflet.draw.js"></script>
+
+      <title>Walk</title>
+      <style>
+       #map { height: 1000px; width: 1000px; }
+
+      </style>
+
+      <script src="js/mqttws31.min.js" type="text/javascript"></script>
+
+    </head>
+    <body class="bgo">
+      <div>
+        <div id="map"></div>
+      </div>
+    </body>
+
+    <script type="text/javascript">
+
+
+       // map stuff
+
+       let geo = [xx.xxxxx, xx.xxxxx];//use some GPS coords
+       let scale = 14;
+
+       var walk_length = 0;
+       // https://stackoverflow.com/questions/41622980/how-to-customize-touch-interaction-on-leaflet-maps#41631385
+       var map = L.map('map',{ dragging:false}).setView(geo, scale);
+       map.scrollWheelZoom.disable();
+       // https://github.com/Leaflet/Leaflet.draw/issues/695#issuecomment-577151966
+       //L.Draw.Polyline.prototype._onTouch = L.Util.falseFn;
+
+       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+       }).addTo(map);
+
+
+       // called when a message arrives
+       function onMessageArrived(message) {
+         console.log("onMessageArrived:"+message.payloadString);
+         try{
+            var p = message.payloadString;
+            var j = JSON.parse(p);
+            console.log(j);
+            let dt = j.received_at;
+            let device_id = j.end_device_ids.device_id;
+            let gateway_id = j.uplink_message.rx_metadata[0].gateway_ids.gateway_id;
+            let lat = j.uplink_message.decoded_payload.gps_1.latitude;
+            let lo = j.uplink_message.decoded_payload.gps_1.longitude;
+
+            console.log("parsed msg ok",dt,device_id,gateway_id,lat,lo);
+
+            var circle = L.circle([lat,lo], {
+              color: 'red',
+              fillColor: '#f03',
+              fillOpacity: 0.5,
+              radius: 50
+            }).addTo(map);
+
+
+          }catch(e){
+            console.log("json part didn't work",e);
+          }
+       }
+
+    </script>
+
+      <script type="text/javascript" language="javascript">
+       var reconnectTimeout = 2000;
+       var port = 9001;
+       var topic = "/ttn/v3/foo-bar@ttn/devices/#";
+
+       // Create a client instance
+       var client = new Paho.MQTT.Client(location.hostname, Number(port), "js-client");
+ 
+       // set callback handlers
+       client.onConnectionLost = onConnectionLost;
+       client.onMessageArrived = onMessageArrived;
+
+       // connect the client
+       client.connect({onSuccess:onConnect});
+
+
+       // called when the client connects
+       function onConnect() {
+         // Once a connection has been made, make a subscription and send a message.
+         console.log("onConnect");
+         client.subscribe(topic, {qos: 0});
+       }
+
+       // called when the client loses its connection
+       function onConnectionLost(responseObject) {
+         if (responseObject.errorCode !== 0) {
+           console.log("onConnectionLost:"+responseObject.errorMessage);
+         }
+       }
+
+      </script>
+
+  </html>
+
