@@ -29,13 +29,21 @@
 
     <script type="text/javascript">
 
-
        // map stuff
 
-       let geo = [xx.xxxxx, xx.xxxxx];//use some GPS coords
-       let scale = 14;
+       let geo = [xx.xxxxx, xx.xxxxx];//use some GPS coords to centre the map
+       let scale = 16;
+       let device_colours = {
+          "t-echo-17415500xx":"blue",
+          "t-echo-36635825xx":"red",
+          "t-echo-13864057xx":"green",
+          "t-echo-38657535xx":"yellow"
+       };
+       let gateway_colours = {
+          "eui-00016c001f105689": "purple", //bemmy
+          "lora-gateway-test-2": "orange" //mine
+       };
 
-       var walk_length = 0;
        // https://stackoverflow.com/questions/41622980/how-to-customize-touch-interaction-on-leaflet-maps#41631385
        var map = L.map('map',{ dragging:false}).setView(geo, scale);
        map.scrollWheelZoom.disable();
@@ -47,8 +55,6 @@
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
        }).addTo(map);
 
-
-       // called when a message arrives
        function onMessageArrived(message) {
          console.log("onMessageArrived:"+message.payloadString);
          try{
@@ -63,18 +69,30 @@
 
             console.log("parsed msg ok",dt,device_id,gateway_id,lat,lo);
 
+            //diff colours for devices and gateways
+
+            let dc = device_colours[device_id];
+            if(!dc){
+              dc = "black";
+            }
+
+            let gc = gateway_colours[gateway_id];
+            if(!gc){
+              gc = "black";
+            }
+
             var circle = L.circle([lat,lo], {
-              color: 'red',
-              fillColor: '#f03',
+              color: dc,
+              fillColor: gc,
               fillOpacity: 0.5,
-              radius: 50
+              radius: 20
             }).addTo(map);
 
 
           }catch(e){
             console.log("json part didn't work",e);
           }
-       }
+       }            
 
     </script>
 
