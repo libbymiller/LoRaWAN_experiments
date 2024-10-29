@@ -3,19 +3,23 @@
   much stolen from https://github.com/jarkman/WhereOTechno/blob/main/WhereOTechno.ino
   and the rest from https://github.com/jgromes/RadioLib/tree/master/examples/LoRaWAN
 
-  had to downgrade radiolib to 6.6.0
+  radiolib now at 7.0.2 - see https://github.com/jgromes/RadioLib/blob/master/examples/LoRaWAN/LoRaWAN_Starter/LoRaWAN_Starter.ino
 
 */
-
 
 #include "config.h"
 #include <CayenneLPP.h>
 
-//242 is from 
+//242 is max, from 
 //https://github.com/HelTecAutomation/CubeCell-Arduino/blob/master/libraries/LoraWan102/src/loramac/Commissioning.h
 //in turn from here https://www.thethingsnetwork.org/forum/t/example-ttn-code-for-heltec-htcc-ab02a-with-gps-in-us915/46093
 
-CayenneLPP lpp(242);
+//9 from here https://github.com/myDevicesIoT/CayenneLPP (for GPS)
+//looking at https://avbentem.github.io/airtime-calculator/ttn/eu868/9
+//if we used it for 1 hour, we could do messages every 30 secs (145 / day, at least 21 secs apart)
+//currently at 2 mins (see config.h)
+
+CayenneLPP lpp(9);
 
 uint32_t my_id;
 double lat = 0;
@@ -59,6 +63,8 @@ void setup() {
   boardInit();
   delay(4000);
 
+  printText("Board","initialised","");
+
 //loraWAN startup stuff
 
   Serial.println(F("Initialise the radio"));
@@ -66,25 +72,22 @@ void setup() {
   debug(state != RADIOLIB_ERR_NONE, F("Initialise radio failed"), state, true);
 
   // Setup the OTAA session information
-  node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+  state = node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
+  debug(state != RADIOLIB_ERR_NONE, F("Initialise node failed"), state, true);
+  if(state != RADIOLIB_ERR_NONE){
+     printText("Initialise node","failed, state:",String(state));
+  }
 
   Serial.println(F("Join ('login') the LoRaWAN Network"));
   state = node.activateOTAA();
-
   debug(state != RADIOLIB_LORAWAN_NEW_SESSION, F("Join failed"), state, true);
-
   if(state != RADIOLIB_LORAWAN_NEW_SESSION){
-    Serial.println(F("Waiting 5 secs and trying again\n"));
-    delay(5000); 
-    state = radio.begin();
-    Serial.println(F("Join ('login') the LoRaWAN Network"));
-    node.beginOTAA(joinEUI, devEUI, nwkKey, appKey);
-    state = node.activateOTAA();
-    debug(state != RADIOLIB_LORAWAN_NEW_SESSION, F("2nd join failed, giving up"), state, true);
+     Serial.println("failed to join lorawan "+String(state));
+     printText("join lorawan","failed, state:",String(state));
   }
 
-  Serial.println(F("Ready\n"));
-  printText("Ready");
+  Serial.println("Ready, Mac address is "+String(my_id));
+  printText("Ready","Mac address:",String(my_id));
 }
 
 void boardInit()
@@ -219,10 +222,14 @@ bool setupGPS()
     return true;
 }
 
-void printText(const char*label){
+void printText(String label, String data1, String data2){
   display->setCursor(10,20);
   display->fillScreen(GxEPD_WHITE);
   display->print(label);
+  display->setCursor(10,50);
+  display->print(data1);
+  display->setCursor(10,80);
+  display->print(data2);
   display->update();
 }
 
@@ -241,10 +248,12 @@ uint32_t getMacAddress()
   return id;
 }
 
+
 void loop() {
     loopGPS();
     loopLoRaWAN();    
 }
+
 
 
 void loopGPS()
@@ -268,13 +277,14 @@ void loopGPS()
         if( ! firstFix ) // always ignore first fix
         {
           Serial.println("got a GPS fix");
-          printText("got a GPS fix");
+          
           lat = gps->location.lat();
           lng = gps->location.lng();
           alt = gps->altitude.meters();
+          printText("got a GPS fix",String(lat),String(lng));
         }else{
           Serial.println("first fix");
-          printText("got a first fix");
+          printText("got a first fix","ignoring","");
           firstFix = false;
         }
           
@@ -283,6 +293,7 @@ void loopGPS()
       }               
       if (gps->charsProcessed() < 10) {
             Serial.println(F("WARNING: No GPS data.  Check wiring."));
+            printText("WARNING: No GPS data","","");
       }
     }
 }
@@ -292,29 +303,37 @@ void loopLoRaWAN(){
 
  if (millis() - lastLoRaWANMillis > (uplinkIntervalSeconds * 1000UL)){
 
-  Serial.println(F("Sending uplink"));
+    Serial.println(F("Sending uplink"));
+    printText("Sending","uplink","");
 
-  lpp.reset();
-  //int batt_lvl = random(0,3.3);
-  //Serial.print(F(",batt_lvl="));
-  //Serial.print(batt_lvl, 2);
-  //lpp.addAnalogInput(8, batt_lvl);
+    lpp.reset();
 
-  lpp.addGPS(1, lat, lng, alt);
-  Serial.print("my_id is ");  
-  Serial.println(my_id);
+    lpp.addGPS(1, lat, lng, alt);
 
-  // Perform an uplink
-  int state = node.sendReceive(lpp.getBuffer(), lpp.getSize());   
- 
-  debug((state != RADIOLIB_LORAWAN_NO_DOWNLINK) && (state != RADIOLIB_ERR_NONE), F("Error in sendReceive"), state, false);
+    // Perform an uplink
+    int16_t state =  node.sendReceive(lpp.getBuffer(), lpp.getSize());   
+    debug(state < RADIOLIB_ERR_NONE, F("Error in sendReceive"), state, false);
+    if(state < RADIOLIB_ERR_NONE){
+      printText("Error in sendReceive","state",String(state));
+    }
 
-  Serial.print(F("Uplink complete, next in "));
-  Serial.print(uplinkIntervalSeconds);
-  Serial.println(F(" seconds"));
-  lastLoRaWANMillis = millis();
-  //use millis for this or it blocks GPS
-  // Wait until next uplink - observing legal & TTN FUP constraints
-  //delay(uplinkIntervalSeconds * 1000UL);  // delay needs milli-seconds
+    // Check if a downlink was received 
+    // (state 0 = no downlink, state 1/2 = downlink in window Rx1/Rx2)
+    if(state > 0) {
+      Serial.println(F("Received a downlink"));
+      printText("Received downlink","State:",String(state));
+    } else {
+      Serial.println(F("No downlink received"));
+      printText("No downlink.","State:",String(state));
+    }
+
+
+    Serial.print(F("Next uplink in "));
+    Serial.print(uplinkIntervalSeconds);
+    Serial.println(F(" seconds\n"));
+    printText("Next uplink:",String(uplinkIntervalSeconds),"seconds");
+
+    lastLoRaWANMillis = millis(); //delay blocks GPS
+
  }
 }
