@@ -15,12 +15,13 @@ It's not quite there yet, but close. We need
 
 # TODO
 
-* Finish provisioning the devices
-  * I'd like to make their IDs in TTN their mac addresses
-  * they need labelling up if so
+* Finish provisioning the devices ✔️
+  * I'd like to make their IDs in TTN their mac addresses. done this with device_id
+  * lavel them up
 * Tweak the device code
-  *  in particular it needs to ping the server pretty often. Need to check the rules for this.
-* Tweak the mapping code
+  * in particular it needs to ping the server pretty often. Need to check the rules for this.
+  * looks like if we used them for an hour or so, every 30 secs would be ok
+* Tweak the mapping code ✔️
   * different devices and gateways should have different colours
   * need a static mapper too
 
