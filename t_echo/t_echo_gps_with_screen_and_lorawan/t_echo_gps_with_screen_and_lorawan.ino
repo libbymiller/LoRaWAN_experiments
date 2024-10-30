@@ -18,8 +18,9 @@
 //looking at https://avbentem.github.io/airtime-calculator/ttn/eu868/9
 //if we used it for 1 hour, we could do messages every 30 secs (145 / day, at least 21 secs apart)
 //currently at 2 mins (see config.h)
+//however, if I use 9 it doesn't work Examples all seem to use max
 
-CayenneLPP lpp(9);
+CayenneLPP lpp(242);
 
 uint32_t my_id;
 double lat = 0;
